@@ -1,0 +1,4 @@
+.envrc
+.null-ls*
+.tmuxp.yaml
+/eeditor
