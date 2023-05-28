@@ -1,6 +1,7 @@
 package main
 
 import (
+	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
@@ -52,6 +53,7 @@ func main() {
 	var path string
 	var config string
 
+	log.SetOutput(ioutil.Discard)
 	// Config loading
 	path = os.Getenv("EEDITOR_CONFIG")
 	if path != "" {
