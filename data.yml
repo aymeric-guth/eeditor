@@ -1,0 +1,12 @@
+---
+- name: nvim
+  env:
+    XDG_CONFIG_HOME: $DOTFILES
+- name: nvim
+  path: $TOOLDIR/bin
+  env:
+    XDG_CONFIG_HOME: $DOTFILES
+- name: vim
+  path: /usr/bin
+- name: vi
+  path: /usr/bin
