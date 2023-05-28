@@ -39,3 +39,9 @@ EEDITOR_CONFIG > XDG_CONFIG_HOME/eeditor/eeditor.yml > ~/.config/eeditor/eeditor
 ```shell
 go install gitea.ars-virtualis.org/yul/eeditor@latest
 ```
+
+## Usage
+
+```shell
+eeditor
+```
