@@ -48,11 +48,42 @@ func main() {
 	var buff []EditorYaml
 	var candidates []Candidate
 	var env []string
+	var configs []string
+	var path string
+	var config string
 
-	// Config PATH lookup
-	// env > XDG > default
-	// Config Loader
-	data, err := os.ReadFile("data.yml")
+	// Config loading
+	path = os.Getenv("EEDITOR_CONFIG")
+	if path != "" {
+		path, err := Expand(path, nil)
+		if err == nil {
+			configs = append(configs, path)
+		}
+	}
+	path = os.Getenv("XDG_CONFIG_HOME")
+	if path != "" {
+		path, err := Expand(path, nil)
+		if err == nil {
+			configs = append(configs, path+"/eeditor/eeditor.yml")
+		}
+	}
+	configs = append(
+		configs,
+		os.Getenv("HOME")+"/.config/eeditor/eeditor.yml",
+		os.Getenv("HOME")+"/.eeditor.yml",
+		"/etc/eeditor/eeditor.yml",
+	)
+	for _, path := range configs {
+		_, err := os.Lstat(path)
+		if err == nil {
+			config = path
+			break
+		}
+	}
+	if config == "" {
+		log.Fatalf("Could not find config file")
+	}
+	data, err := os.ReadFile(config)
 	if err != nil {
 		log.Fatalf("error: %v", err)
 	}
@@ -60,6 +91,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("error: %v", err)
 	}
+
 	// Pre-processin Optional[string|sequence[string]] -> []string
 	for idx, entry := range buff {
 		editor := Editor{Name: entry.Name, Path: []string{}, Env: entry.Env}
@@ -105,7 +137,6 @@ func main() {
 		// Dépendances pour 1 entry
 		// Environment, besoin de toutes les variables d'environnement
 		// Path, besoin d'au moins 1 Path
-
 		// Make Candidate
 		// Dès qu'un Candidat est disponible, on peut procéder à la suite de la validation
 		// Les candidats sont évalués dans l'ordre de priorité défini dans la config
@@ -128,25 +159,21 @@ func main() {
 			log.Printf("%s is not executable", candidate)
 			continue
 		}
-
-		{
-			log.Printf("Running %s", candidate)
-			cmd := exec.Command(candidate.Path, os.Args[1:]...)
-			cmd.Env = os.Environ()
-			cmd.Env = append(cmd.Env, candidate.Env...)
-
-			cmd.Stdin = os.Stdin
-			cmd.Stdout = os.Stdout
-			cmd.Stderr = os.Stderr
-			err := cmd.Run()
-			if err != nil {
-				log.Fatal(err)
-			}
-			os.Exit(0)
-			// syscall.Exec not working on OSX
-			// syscall.Exec(filepath.Join(editor.Path, editor.Name), os.Args[1:], env)
+		log.Printf("Running %s", candidate)
+		cmd := exec.Command(candidate.Path, os.Args[1:]...)
+		cmd.Env = os.Environ()
+		cmd.Env = append(cmd.Env, candidate.Env...)
+		cmd.Stdin = os.Stdin
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		err = cmd.Run()
+		if err != nil {
+			log.Fatal(err)
 		}
-
+		os.Exit(0)
+		// syscall.Exec not working on OSX
+		// syscall.Exec(filepath.Join(editor.Path, editor.Name), os.Args[1:], env)
 	}
 	log.Fatalf("Could not find any editor")
+
 }
