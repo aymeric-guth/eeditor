@@ -17,18 +17,21 @@ type Editor struct {
 	Name string
 	Path []string
 	Env  map[string]string
+	Fast bool
 }
 
 type EditorYaml struct {
 	Name string            `yaml:"name"`
 	Path interface{}       `yaml:"path"`
 	Env  map[string]string `yaml:"env,omitempty"`
+	Fast bool              `yaml:"fast"`
 }
 
 type Candidate struct {
 	Name string
 	Path string
 	Env  []string
+	Fast bool
 }
 
 func Expand(s string, env func(string) string) (string, error) {
@@ -52,8 +55,11 @@ func main() {
 	var configs []string
 	var path string
 	var config string
+	var fromZLE bool = false
 
 	log.SetOutput(ioutil.Discard)
+	// log.SetOutput(os.Stdout)
+
 	// Config loading
 	path = os.Getenv("EEDITOR_CONFIG")
 	if path != "" {
@@ -96,7 +102,7 @@ func main() {
 
 	// Pre-processin Optional[string|sequence[string]] -> []string
 	for idx, entry := range buff {
-		editor := Editor{Name: entry.Name, Path: []string{}, Env: entry.Env}
+		editor := Editor{Name: entry.Name, Path: []string{}, Env: entry.Env, Fast: entry.Fast}
 		switch i := entry.Path.(type) {
 		case string:
 			editor.Path = append(editor.Path, i)
@@ -127,6 +133,7 @@ func main() {
 				env = append(env, k+"="+val)
 			}
 		}
+
 		// Environment expansion for path
 		for idx, v := range editor.Path {
 			path, err := Expand(v, nil)
@@ -136,6 +143,7 @@ func main() {
 				editor.Path[idx] = path
 			}
 		}
+
 		// Dépendances pour 1 entry
 		// Environment, besoin de toutes les variables d'environnement
 		// Path, besoin d'au moins 1 Path
@@ -146,25 +154,41 @@ func main() {
 			candidates = append(candidates, Candidate{
 				Path: filepath.Join(v, editor.Name),
 				Env:  env,
+				Fast: editor.Fast,
 			})
 		}
 	}
 
+	// special case, eeditor invoked from ZLE, use low-ressources EDITOR
+	envBase := os.Environ()
+	for _, val := range envBase {
+		if val == "IN_ZLE=1" {
+			fromZLE = true
+		}
+	}
+
 	for _, candidate := range candidates {
+		log.Printf("candidate: %v fromZLE: %t", candidate, fromZLE)
+		if fromZLE && !candidate.Fast {
+			continue
+		}
+
 		fi, err := os.Lstat(candidate.Path)
 		if err != nil {
-			log.Printf("Could not stat: %s err=%s", candidate, err)
+			log.Printf("Could not stat: %v err=%s", candidate, err)
 			continue
 		}
-		log.Printf("candidate=%s", candidate.Path)
+
+		log.Printf("candidate=%v", candidate)
 		if fi.Mode().Perm()&0o111 == 0 {
-			log.Printf("%s is not executable", candidate)
+			log.Printf("%v is not executable", candidate)
 			continue
 		}
-		log.Printf("Running %s", candidate)
+
+		log.Printf("Running %v", candidate)
+		env := append(envBase, candidate.Env...)
 		cmd := exec.Command(candidate.Path, os.Args[1:]...)
-		cmd.Env = os.Environ()
-		cmd.Env = append(cmd.Env, candidate.Env...)
+		cmd.Env = env
 		cmd.Stdin = os.Stdin
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
