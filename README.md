@@ -37,7 +37,7 @@ EEDITOR_CONFIG > XDG_CONFIG_HOME/eeditor/eeditor.yml > ~/.config/eeditor/eeditor
 ## Installation
 
 ```shell
-go install gitea.ars-virtualis.org/yul/eeditor@latest
+go install github.com/aymeric-guth/eeditor@latest
 ```
 
 ## Usage
